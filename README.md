@@ -11,17 +11,17 @@ Right-click any audio file → **"Convert to mp3"**
 - Converts audio files to MP3 format (192k bitrate)
 - Works with: WAV, AAC, FLAC, OGG, WMA, M4A, AIFF, OPUS, ALAC, and more
 
-### 📄 PDF Conversion
-Right-click any PDF → **"Convert to png"**
-- Converts each PDF page to separate PNG images
-- Perfect for extracting pages as images
-
 ### 🎬 Video Conversion
 Right-click any video → **"Convert to..."** with organized submenu:
 - **To .mp4** - Convert video to MP4 format (copy video stream, fast)
 - **To audio →**
   - **To .mp3** - Extract audio as MP3 (high quality)
   - **To .wav** - Extract audio as WAV (uncompressed, 44.1kHz)
+
+### 📄 PDF Conversion
+Right-click any PDF → **"Convert to png"**
+- Converts each PDF page to separate PNG images
+- Perfect for extracting pages as images
 
 ### Supported Formats
 **Audio:** WAV, AAC, FLAC, OGG, WMA, M4A, AIFF, OPUS, ALAC, MP2, MP1, AMR, DSD, PCM, APE, AU, RA, TTA
