@@ -2,6 +2,8 @@
 
 Simple right-click context menu tools for quick media conversions on Windows. No GUI needed—just right-click any file and convert it instantly.
 
+MORE FEATURES WILL BE ADDED THROUGH UPDATES
+
 ## What It Does
 
 This collection adds convenient conversion options to your Windows right-click context menu:
