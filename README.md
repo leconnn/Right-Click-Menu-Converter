@@ -11,8 +11,9 @@ Right-click any audio file → **"Convert to mp3"**
 - Converts audio files to MP3 format (192k bitrate)
 - Works with: WAV, AAC, FLAC, OGG, WMA, M4A, AIFF, OPUS, ALAC, and more
 
-### 🎬 Video Conversion
+### 🎬 Video Conversion and Compression
 Right-click any video → **"Convert to..."** with organized submenu:
+- **Compress video** - Compresses video file to desired file size in `MB` (MegaBytes).
 - **To .mp4** - Convert video to MP4 format (copy video stream, fast)
 - **To audio →**
   - **To .mp3** - Extract audio as MP3 (high quality)
@@ -32,24 +33,17 @@ Right-click any PDF → **"Convert to png"**
 
 ## Requirements
 
-Before installing, you need these programs:
+!! THESE SHOULD ALREADY BE INCLUDED IN INSTALLER !!
+Install the following if installer requires it:
 
 1. **Python 3.x** - [Download here](https://www.python.org/downloads/)
    - ✅ Check "Add Python to PATH" during installation
 
-2. **FFmpeg** - [Download here](https://ffmpeg.org/download.html)
-   - **Easy install with pip:**
-     ```bash
-     pip install ffmpeg-python
-     ```
-   - **Or download manually:** Extract and add to system PATH
+2. **FFmpeg** - [Download here](https://www.gyan.dev/ffmpeg/builds/ffmpeg-git-full.7z)
+   - **Extract and add `bin` folder to system PATH**
 
 3. **Poppler** - [Download here](https://github.com/oschwartz10612/poppler-windows/releases/)
-   - **Easy install with conda:**
-     ```bash
-     conda install -c conda-forge poppler
-     ```
-   - **Or download manually:** Extract and add `bin` folder to system PATH
+   - **Extract and add `bin` folder to system PATH**
 
 ## Installation
 
