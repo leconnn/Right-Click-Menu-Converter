@@ -26,38 +26,35 @@ Right-click any PDF → **"Convert to png"**
 - Converts each PDF page to separate PNG images
 - Perfect for extracting pages as images
 
+### 🖼️ Images to PDF
+Select one or more images → right-click → **"Images to PDF"**
+- Opens a window to drag-reorder pages, pick a paper size (A4, Letter, Legal, Long/Folio, A3, A5, Tabloid, or the original image size), choose Portrait/Landscape, and Fit/Fill
+- Combines all selected images into a single PDF saved next to the first image
+
 ### Supported Formats
 **Audio:** WAV, AAC, FLAC, OGG, WMA, M4A, AIFF, OPUS, ALAC, MP2, MP1, AMR, DSD, PCM, APE, AU, RA, TTA
 
 **Video:** MKV, MOV, AVI, WMV, FLV, WebM, MPEG, MPG, M4V, 3GP, 3G2, TS, MTS, M2TS, DivX, VOB, OGV, RM, RMVB, ASF, F4V, DV, DRC, MXF, ROQ, VIV, AMV, MP4
 
+**Images:** JPG, JPEG, PNG, BMP, GIF, TIFF, TIF, WEBP
+
 **PDF:** PDF
 
 ## Requirements
 
-!! THESE SHOULD ALREADY BE INCLUDED IN INSTALLER !!
-Install the following if installer requires it:
-
-1. **Python 3.x** - [Download here](https://www.python.org/downloads/)
-   - ✅ Check "Add Python to PATH" during installation
-
-2. **FFmpeg** - [Download here](https://www.gyan.dev/ffmpeg/builds/ffmpeg-git-full.7z)
-   - **Extract and add `bin` folder to system PATH**
-
-3. **Poppler** - [Download here](https://github.com/oschwartz10612/poppler-windows/releases/)
-   - **Extract and add `bin` folder to system PATH**
+None. FFmpeg, Poppler, and Python itself are all bundled inside the installer — nothing needs to be downloaded or installed separately.
 
 ## Installation
 
 1. Run `RightClickConvert_Setup.exe`
-2. The installer checks for required dependencies
+2. On the **Select Components** page, check which converters you want (each video sub-feature — To .mp4, To .mp3, To .wav, Compress — can be toggled individually). Everything is checked by default.
 3. Files are installed to `C:\Program Files\Right Click Converters\`
-4. Context menu entries are automatically created
+4. Context menu entries are created only for the components you selected
 5. Done! Start right-clicking files to convert them
 
 ## How to Use
 
-1. Right-click any supported file
+1. Right-click any supported file (or select multiple images for "Images to PDF")
 2. Choose your conversion option from the menu
 3. Converted file appears in the same folder
 4. That's it!
@@ -68,11 +65,13 @@ Install the following if installer requires it:
 
 ## Technical Details
 
-- Uses **FFmpeg** for audio/video conversion
-- Uses **pdftoppm** (from Poppler) for PDF conversion
+- Each converter is a standalone `.exe` (built with PyInstaller) — no Python installation required on your machine
+- Uses a bundled **FFmpeg** for audio/video conversion
+- Uses a bundled **pdftoppm** (from Poppler) for PDF conversion
+- Uses bundled **Pillow** for image-to-PDF conversion
 - All scripts may or may not open a terminal window (`.pyw` files)
 - Context menu only appears for supported file types
-- Converted files keep the original filename with new extension
+- Converted files keep the original filename with a new extension (or, for Images to PDF, are named after the first selected image)
 
 ## Uninstallation
 
