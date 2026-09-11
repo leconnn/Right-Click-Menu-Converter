@@ -7,31 +7,15 @@ import time
 import threading
 import tkinter as tk
 from tkinter import ttk
-
-# Get paths to bundled ffmpeg / ffprobe
-if getattr(sys, 'frozen', False):
-    script_dir = os.path.dirname(sys.executable)
-else:
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-ffmpeg_exe = 'ffmpeg'
-ffprobe_exe = 'ffprobe'
-for _bin_dir in ('bin', 'bin_standalone'):
-    _ff = os.path.join(script_dir, _bin_dir, 'ffmpeg.exe')
-    _fp = os.path.join(script_dir, _bin_dir, 'ffprobe.exe')
-    if os.path.exists(_ff):
-        ffmpeg_exe = _ff
-    if os.path.exists(_fp):
-        ffprobe_exe = _fp
-    if ffmpeg_exe != 'ffmpeg':
-        break
+from PIL import Image, ImageOps
 
 _NO_WINDOW = subprocess.CREATE_NO_WINDOW if sys.platform == 'win32' else 0
 
 # --- Cloud placeholder (OneDrive Files On-Demand, etc.) handling ---
-# A cloud-only file still passes os.path.isfile(), but ffmpeg/ffprobe doing
-# random-access reads on it can fail or hang if the cloud filter driver
-# doesn't hydrate on-demand for external processes. Force a full download
-# by reading the whole file ourselves before handing the path to ffmpeg.
+# A cloud-only file still passes os.path.isfile(), but Pillow doing
+# random-access reads on it can fail if the cloud filter driver doesn't
+# hydrate on-demand for external processes. Force a full download by
+# reading the whole file ourselves before handing it to Image.open.
 _FILE_ATTRIBUTE_OFFLINE = 0x1000
 _FILE_ATTRIBUTE_RECALL_ON_OPEN = 0x40000
 _FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS = 0x400000
@@ -61,8 +45,18 @@ def _ensure_hydrated(file, set_status=None):
 
 # --- Queue / lock helpers ---
 _SCRIPT_ID = os.path.splitext(os.path.basename(__file__))[0]
-_QUEUE_DIR  = os.path.join(tempfile.gettempdir(), f'rcc_{_SCRIPT_ID}_queue')
-_LOCK_FILE  = os.path.join(tempfile.gettempdir(), f'rcc_{_SCRIPT_ID}.lock')
+_QUEUE_DIR = os.path.join(tempfile.gettempdir(), f'rcc_{_SCRIPT_ID}_queue')
+_LOCK_FILE = os.path.join(tempfile.gettempdir(), f'rcc_{_SCRIPT_ID}.lock')
+_LOG_FILE = os.path.join(tempfile.gettempdir(), f'rcc_{_SCRIPT_ID}.log')
+
+
+def _log(msg):
+    try:
+        with open(_LOG_FILE, 'a', encoding='utf-8') as _f:
+            _f.write(f'[{time.strftime("%H:%M:%S")}] {msg}\n')
+    except OSError:
+        pass
+
 
 def _enqueue(files):
     os.makedirs(_QUEUE_DIR, exist_ok=True)
@@ -70,6 +64,7 @@ def _enqueue(files):
         job = os.path.join(_QUEUE_DIR, f'{os.getpid()}_{time.time_ns()}.job')
         with open(job, 'w', encoding='utf-8') as f:
             f.write(path)
+
 
 def _is_python_process(pid):
     try:
@@ -81,6 +76,7 @@ def _is_python_process(pid):
     except Exception:
         return True
 
+
 def _try_lock():
     """Acquire the lock, stealing it only if the owning process is confirmed dead."""
     for _ in range(10):
@@ -91,7 +87,7 @@ def _try_lock():
             return True
         except FileExistsError:
             try:
-                with open(_LOCK_FILE, 'r') as _f:
+                with open(_LOCK_FILE, 'r', encoding='utf-8') as _f:
                     content = _f.read().strip()
                 if not content:
                     time.sleep(0.05)
@@ -102,6 +98,7 @@ def _try_lock():
                     raise ProcessLookupError
                 return False
             except ProcessLookupError:
+                _log(f'removing stale lock (dead pid {owner_pid})')
                 try:
                     os.remove(_LOCK_FILE)
                 except OSError:
@@ -110,11 +107,13 @@ def _try_lock():
                 time.sleep(0.05)
     return False
 
+
 def _unlock():
     try:
         os.remove(_LOCK_FILE)
     except OSError:
         pass
+
 
 def _dequeue():
     os.makedirs(_QUEUE_DIR, exist_ok=True)
@@ -129,68 +128,74 @@ def _dequeue():
             continue
     return None
 
-# Add to this list if found more video file formats
-video_extensions = (
-    '.mkv', '.mov', '.avi', '.wmv', '.flv', '.webm', '.mpeg', '.mpg', '.m4v',
-    '.3gp', '.3g2', '.ts', '.mts', '.m2ts', '.divx', '.vob', '.ogv', '.rm',
-    '.rmvb', '.asf', '.f4v', '.dv', '.drc', '.mxf', '.roq', '.viv', '.amv',
-    '.mp2', '.mpv', '.mp4', '.m2ts'
-)
 
-def _get_duration(file):
-    result = subprocess.run(
-        [ffprobe_exe, '-v', 'error', '-show_entries', 'format=duration',
-         '-of', 'default=noprint_wrappers=1:nokey=1', file],
-        capture_output=True, text=True, creationflags=_NO_WINDOW
-    )
-    try:
-        return float(result.stdout.strip())
-    except (ValueError, AttributeError):
-        return None
+IMAGE_EXTENSIONS = (
+    '.jpg', '.jpeg', '.png', '.bmp', '.gif', '.tiff', '.tif', '.webp',
+    '.jfif', '.heic', '.heif', '.avif'
+)
+_INVALID_NAME_CHARS = '<>:"/\\|?*'
+
+
+def sanitize_filename(name):
+    name = ''.join(c for c in name if c not in _INVALID_NAME_CHARS).strip().rstrip('.')
+    return name or 'image'
+
+
+def make_output_path(source_path):
+    source_dir = os.path.dirname(source_path)
+    source_name = os.path.splitext(os.path.basename(source_path))[0]
+    base_name = sanitize_filename(source_name)
+    candidate = os.path.join(source_dir, f'{base_name}.jpg')
+    n = 1
+    while os.path.exists(candidate):
+        candidate = os.path.join(source_dir, f'{base_name} ({n}).jpg')
+        n += 1
+    return candidate
+
 
 def process_file(file, set_status=None, set_progress=None):
-    if not (os.path.isfile(file) and file.lower().endswith(video_extensions)):
+    if not (os.path.isfile(file) and file.lower().endswith(IMAGE_EXTENSIONS)):
         return None
-    base, ext = os.path.splitext(file)
+
     name = os.path.basename(file)
+    ext = os.path.splitext(file)[1].lower()
+    if ext in {'.jpg', '.jpeg'}:
+        if set_status:
+            set_status(f'Skipping: {name}')
+        return None
+
     if set_status:
         set_status(f'Converting: {name}')
 
     if not _ensure_hydrated(file, set_status):
+        _log(f'FAIL {name}: could not download file from cloud storage')
         return 'could not download file from cloud storage'
 
-    duration = _get_duration(file)
+    try:
+        with Image.open(file) as img:
+            img = ImageOps.exif_transpose(img)
+            if img.mode in ('RGBA', 'LA', 'P'):
+                bg = Image.new('RGB', img.size, (255, 255, 255))
+                if 'transparency' in img.info:
+                    img = img.convert('RGBA')
+                    bg.paste(img, mask=img.split()[-1])
+                else:
+                    img = img.convert('RGB')
+                rgb_img = bg
+            else:
+                rgb_img = img.convert('RGB')
 
-    proc = subprocess.Popen(
-        [ffmpeg_exe, '-y', '-i', base + ext, '-vn',
-         '-acodec', 'pcm_s16le', '-ar', '44100', '-ac', '2',
-         '-progress', 'pipe:1', '-nostats', base + '.wav'],
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-        creationflags=_NO_WINDOW
-    )
+            out_path = make_output_path(file)
+            rgb_img.save(out_path, 'JPEG', quality=95)
+    except Exception as exc:
+        _log(f'FAIL {name}: {exc}')
+        return str(exc)
 
-    stderr_buf = []
-    def _drain():
-        for line in proc.stderr:
-            stderr_buf.append(line)
-    threading.Thread(target=_drain, daemon=True).start()
-
-    for raw in proc.stdout:
-        line = raw.decode(errors='replace').strip()
-        if line.startswith('out_time_ms=') and duration and set_progress:
-            try:
-                us = int(line.split('=')[1])
-                set_progress(min(us / (duration * 1_000_000) * 100, 99))
-            except (ValueError, ZeroDivisionError):
-                pass
-
-    proc.wait()
-    if proc.returncode != 0:
-        err = b''.join(stderr_buf).decode(errors='replace').strip().splitlines()
-        return err[-1] if err else 'ffmpeg failed'
     if set_progress:
         set_progress(100)
+    _log(f'OK   {name} -> {os.path.basename(out_path)}')
     return True
+
 
 # --- Worker thread: drains the queue and updates the GUI ---
 def _worker(set_status, set_progress, set_file_label, root):
@@ -221,8 +226,8 @@ def _worker(set_status, set_progress, set_file_label, root):
                 processed += 1
             elif res is not None:
                 errors.append(f'{os.path.basename(file)}: {res}')
-    except Exception as e:
-        set_status(f'Error: {e}')
+    except Exception as exc:
+        set_status(f'Error: {exc}')
         time.sleep(5)
         _unlock()
         root.after(0, root.destroy)
@@ -231,16 +236,21 @@ def _worker(set_status, set_progress, set_file_label, root):
     _unlock()
     if errors:
         msg = f'Done — {processed} converted, {len(errors)} failed: {errors[0]}'
+        _log(msg)
         set_status(msg)
         time.sleep(4)
+    else:
+        _log(f'Done — {processed} file{"s" if processed != 1 else ""} converted.')
     root.after(0, root.destroy)
 
+
 # --- Main: enqueue this batch, then become the worker if no one else is ---
+_log(f'START pid={os.getpid()} argv={sys.argv[1:]}')
 _enqueue(sys.argv[1:])
 
 if _try_lock():
     root = tk.Tk()
-    root.title('Video to WAV')
+    root.title('Image to JPG Converter')
     root.resizable(False, False)
 
     frame = tk.Frame(root, padx=20, pady=16)
@@ -256,22 +266,23 @@ if _try_lock():
     bar = ttk.Progressbar(frame, mode='determinate', length=360, maximum=100)
     bar.pack(pady=(6, 0))
 
-    # Centre the window
     root.update_idletasks()
     w, h = 400, 110
-    sx = (root.winfo_screenwidth()  - w) // 2
+    sx = (root.winfo_screenwidth() - w) // 2
     sy = (root.winfo_screenheight() - h) // 2
     root.geometry(f'{w}x{h}+{sx}+{sy}')
 
     t = threading.Thread(
         target=_worker,
-        args=(lambda msg: root.after(0, status_var.set, msg),
-              lambda val: root.after(0, lambda v=val: bar.configure(value=v)),
-              lambda msg: root.after(0, file_var.set, msg),
-              root),
-        daemon=True
+        args=(
+            lambda msg: root.after(0, status_var.set, msg),
+            lambda val: root.after(0, lambda v=val: bar.configure(value=v)),
+            lambda msg: root.after(0, file_var.set, msg),
+            root,
+        ),
+        daemon=True,
     )
     t.start()
 
-    root.protocol("WM_DELETE_WINDOW", lambda: (_unlock(), root.destroy()))
+    root.protocol('WM_DELETE_WINDOW', lambda: (_unlock(), root.destroy()))
     root.mainloop()
