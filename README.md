@@ -79,12 +79,6 @@ None. FFmpeg, Poppler, and Python itself are all bundled inside the installer, s
 - Converted files keep the original filename with a new extension (or, for Images to PDF, are named after the first selected image)
 - Files that are cloud-only (e.g. OneDrive "Files On-Demand" placeholders not yet downloaded to your PC) are downloaded automatically before conversion, so you can right-click them straight from Explorer without downloading them first
 
-## Changelog
-
-### v1.2.1
-- Added: **Image to JPG** converter (PNG, BMP, GIF, TIFF, WEBP, JFIF, HEIC, HEIF, AVIF → JPG)
-- Fixed: converters failing or hanging on cloud-only files (OneDrive Files On-Demand, etc.); files are now fully downloaded before conversion starts
-
 ## Uninstallation
 
 1. Windows Settings → Apps → Installed apps
